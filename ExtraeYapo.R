@@ -60,52 +60,109 @@ for (i in 1:length(textoCategorias)) {
 }
 
 
-# listado productos individuales
-listadoIndividual <- html_nodes(listadoProductos,css = '.ad')
 
+#######################################################################################################
 
 # [almacenando informacio 1] creacion del dataframe
 todaLaInformacion <- data.frame()
 
-for(producto in listadoIndividual){
-  print('================== ITEMS ==================')
+for(nroPagina in 1:5){
   
-  # titulo
-  titulo <- html_nodes(producto, css = '.title')
-  textoTitulo <- html_text(titulo)
-  print(textoTitulo)
+  urlyapo <- paste('https://www.yapo.cl/region_metropolitana?ca=15_s&o=',nroPagina,sep = "")
   
-  # Categoria
-  categoria <- html_nodes(producto, css = '.category')
-  textoCategoria <- html_text(categoria)
-  print(textoCategoria)
+  # descargando la pagina yapo.cl
+  yapo <- read_html(urlyapo)
   
-  # comuna
-  comuna <- html_nodes(producto, css = '.commune')
-  textoComuna <- html_text(comuna)
-  print(textoComuna)
+  # listado de productos
+  listadoProductos <- html_nodes(yapo, css = "#hl")
   
-  # Precio
-  precio <- html_nodes(producto, css = '.price')
-  textoPrecio <- html_text(precio)
-  if(length(textoPrecio) == 0){
-    textoPrecio <- NA
-  } else {
-    textoPrecio <- gsub("\n","",textoPrecio)
-    textoPrecio <- gsub("\t","",textoPrecio)
-    textoPrecio <- gsub("[$]","",textoPrecio)
-    textoPrecio <- gsub("[.]","",textoPrecio)
-    textoPrecio <- trim(textoPrecio)
-    textoPrecio <- as.numeric(textoPrecio)
+  # listado productos individuales
+  listadoIndividual <- html_nodes(listadoProductos,css = '.ad')
+  
+  for(producto in listadoIndividual){
+    print('================== ITEMS ==================')
+    
+    # titulo
+    titulo <- html_nodes(producto, css = '.title')
+    linkProducto <- html_attr(titulo, 'href')
+    print(linkProducto)
+    textoTitulo <- html_text(titulo)
+    print(textoTitulo)
+    
+    # Categoria
+    categoria <- html_nodes(producto, css = '.category')
+    textoCategoria <- html_text(categoria)
+    print(textoCategoria)
+    
+    # comuna
+    comuna <- html_nodes(producto, css = '.commune')
+    textoComuna <- html_text(comuna)
+    print(textoComuna)
+    
+    # Precio
+    precio <- html_nodes(producto, css = '.price')
+    textoPrecio <- html_text(precio)
+    if(length(textoPrecio) == 0){
+      textoPrecio <- NA
+    } else {
+      textoPrecio <- gsub("\n","",textoPrecio)
+      textoPrecio <- gsub("\t","",textoPrecio)
+      textoPrecio <- gsub("[$]","",textoPrecio)
+      textoPrecio <- gsub("[.]","",textoPrecio)
+      textoPrecio <- trim(textoPrecio)
+      textoPrecio <- as.numeric(textoPrecio)
+    }
+    print(textoPrecio)
+    
+    # Obteniendo la descripcio
+    subPagina <- read_html(linkProducto)
+    descripcion <- html_nodes(subPagina, css = '.description > p')
+    #descripcion <- html_nodes(descripcion, css = 'p')
+    textoDescripcion <- html_text(descripcion)
+    textoDescripcion <- gsub("\n"," ",textoDescripcion)
+    textoDescripcion <- tolower(textoDescripcion)
+    print(textoDescripcion)
+    
+    #[almacenando informacio 2] creando dataframe con los detalles
+    # de cada item
+    item <- data.frame(titulo = textoTitulo, categoria = textoCategoria, precio = textoPrecio, comuna = textoComuna, descripcion = textoDescripcion, link = linkProducto)
+    
+    #[almacenando informacio 3] almacenando la informacion del producto
+    # con los datos totales
+    todaLaInformacion <- rbind(todaLaInformacion,item)
+    
   }
-  print(textoPrecio)
-  
-  #[almacenando informacio 2] creando dataframe con los detalles
-  # de cada item
-  item <- data.frame(titulo = textoTitulo, categoria = textoCategoria, precio = textoPrecio, comuna = textoComuna)
-  
-  #[almacenando informacio 3] almacenando la informacion del producto
-  # con los datos totales
-  todaLaInformacion <- rbind(todaLaInformacion,item)
-  
 }
+
+write.csv(todaLaInformacion,"informacionYapo.csv")
+
+
+#####################################################################################################################
+
+library(ggplot2)
+
+# conteo comunas
+ggplot(todaLaInformacion, aes( x = comuna )) +
+  geom_bar(fill = "red") +
+  coord_flip()
+
+# precio en comuna
+ggplot(todaLaInformacion, aes( x = comuna, y = precio )) +
+  geom_point() +
+  coord_flip()
+
+# histograma precio
+ggplot(todaLaInformacion, aes(x = precio )) +
+  geom_histogram()
+
+
+# precio en categoria
+ggplot(todaLaInformacion, aes( x = categoria, y = precio )) +
+  geom_point() +
+  coord_flip()
+
+
+# precio en comuna
+ggplot(todaLaInformacion, aes( x = comuna, y = precio )) +
+  geom_boxplot()
+
